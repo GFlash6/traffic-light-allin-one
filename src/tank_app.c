@@ -36,6 +36,12 @@ typedef enum {
   MODE_CUSTOM_PAIR_CHASE,
 } AppMode;
 
+typedef enum {
+  JSON_CMD_NONE,
+  JSON_CMD_CONSUMED,
+  JSON_CMD_ANIM,
+} JsonCommandResult;
+
 static AppMode app_mode = MODE_BEACON;
 static uint16_t work_elapsed_ms = 0;
 static uint8_t work_step = 0;
@@ -261,7 +267,7 @@ static uint8_t mask_from_bits(const char *bits) {
   return logical_to_hw_mask(mask);
 }
 
-static uint8_t apply_json_command(char *line, char *anim_value, uint8_t anim_size) {
+static JsonCommandResult apply_json_command(char *line, char *anim_value, uint8_t anim_size) {
   char value[16];
   uint16_t period;
 
@@ -291,7 +297,7 @@ static uint8_t apply_json_command(char *line, char *anim_value, uint8_t anim_siz
     } else {
       set_mode(MODE_CUSTOM_CHASE);
     }
-    return 1;
+    return JSON_CMD_CONSUMED;
   }
 
   if (json_string_value(line, "pattern", value, sizeof(value))) {
@@ -314,7 +320,7 @@ static uint8_t apply_json_command(char *line, char *anim_value, uint8_t anim_siz
     } else {
       set_mode(MODE_CUSTOM_CHASE);
     }
-    return 1;
+    return JSON_CMD_CONSUMED;
   }
 
   if (json_string_value(line, "leds", value, sizeof(value)) ||
@@ -322,11 +328,15 @@ static uint8_t apply_json_command(char *line, char *anim_value, uint8_t anim_siz
       json_string_value(line, "mask", value, sizeof(value))) {
     manual_mask = mask_from_bits(value);
     set_mode(MODE_MANUAL);
-    return 1;
+    return JSON_CMD_CONSUMED;
   }
 
-  return json_string_value(line, "anim", anim_value, anim_size) ||
-         json_string_value(line, "id", anim_value, anim_size);
+  if (json_string_value(line, "anim", anim_value, anim_size) ||
+      json_string_value(line, "id", anim_value, anim_size)) {
+    return JSON_CMD_ANIM;
+  }
+
+  return JSON_CMD_NONE;
 }
 
 static void apply_stream_effect(char *line) {
@@ -360,11 +370,8 @@ static void apply_command(char *line) {
   const char *cmd = command_value(line);
 
   if (line[0] == '{') {
-    if (!apply_json_command(line, anim_value, sizeof(anim_value))) {
-      return;
-    }
-    if (app_mode == MODE_MANUAL || app_mode == MODE_CUSTOM_BLINK ||
-        app_mode == MODE_CUSTOM_CHASE || app_mode == MODE_CUSTOM_PAIR_CHASE) {
+    JsonCommandResult json_result = apply_json_command(line, anim_value, sizeof(anim_value));
+    if (json_result == JSON_CMD_NONE || json_result == JSON_CMD_CONSUMED) {
       return;
     }
     cmd = anim_value;
@@ -396,7 +403,7 @@ static void apply_command(char *line) {
     set_mode(MODE_DIZZY);
   } else if (streq(cmd, "red_blink")) {
     custom_mask = mask_from_bits("100");
-    custom_period_ms = 220;
+    custom_period_ms = 500;
     set_mode(MODE_CUSTOM_BLINK);
   } else if (streq(cmd, "yellow_blink")) {
     custom_mask = mask_from_bits("010");
@@ -408,7 +415,7 @@ static void apply_command(char *line) {
     set_mode(MODE_CUSTOM_BLINK);
   } else if (streq(cmd, "all_chase")) {
     custom_mask = LED_BIT_ALL;
-    custom_period_ms = 220;
+    custom_period_ms = 500;
     set_mode(MODE_CUSTOM_CHASE);
   } else if (streq(cmd, "yellow_chase")) {
     custom_mask = mask_from_bits("010");
