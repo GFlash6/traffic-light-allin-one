@@ -1,0 +1,20 @@
+{
+  "build": {
+    "cpu": "mcs51",
+    "f_cpu": "16000000L",
+    "mcu": "ch552g",
+    "size_code": 14336,
+    "size_heap": 128,
+    "size_iram": 256,
+    "size_xram": 1024
+  },
+  "frameworks": [],
+  "name": "CH552G",
+  "upload": {
+    "maximum_ram_size": 876,
+    "maximum_size": 14336,
+    "protocol": "custom"
+  },
+  "url": "https://www.wch-ic.com/products/CH552.html",
+  "vendor": "WCH"
+}
